@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,9 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config(DEBUG, cast=bool, default='')
+DEBUG = config('DEBUG', cast=bool, default='')
 
-ALLOWED_HOSTS = [*]
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -38,13 +39,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+     'rest_framework',
     'apps.tenants',
     'apps.users',
     'apps.payments',
     'apps.webhooks',
     'apps.subscriptions',
-    'apps.dashboard',  
-    'rest_framework',
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [
@@ -86,14 +87,14 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': config('DB_NAME', default=''),
         'USER': config('DB_USER', default=''),
-        'PASSWORD': config(DB_PASSWORD, default=''),
+        'PASSWORD': config('DB_PASSWORD', default=''),
         'HOST': config('DB_HOST', default=''),
         'PORT': config('DB_PORT', default=''),
     }
 }
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES':['rest_framework.permissions.AllowAny']
+    'DEFAULT_PERMISSION_CLASSES':['rest_framework.permissions.AllowAny'],
     'DEFAULT_PAGINATION_CLASS':'rest_framework.pagination.PageNumberPagination','PAGE_SIZE':50,
 }
 
