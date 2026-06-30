@@ -138,3 +138,16 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CACHES = {
+    "default":{
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
+    }
+}
+
+DARAJA_CONSUMER_KEY = config('DARAJA_CONSUMER_KEY')
+DARAJA_CONSUMER_SECRET = config('DARAJA_CONSUMER_SECRET')
+DARAJA_SHORTCODE = config('DARAJA_SHORTCODE')
+DARAJA_PASSKEY = config('DARAJA_PASSKEY')
+DARAJA_CALLBACK_URL = config('DARAJA_CALLBACK_URL')
