@@ -1,2 +1,6 @@
 from django.urls import path
-urlpatterns = []
+from .views import DarajaCallbackView
+
+urlpatterns = [
+    path("daraja/callback/", DarajaCallbackView.as_view(), name="daraja-callback"),
+]
