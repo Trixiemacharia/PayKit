@@ -157,3 +157,21 @@ DARAJA_CONSUMER_SECRET = config('DARAJA_CONSUMER_SECRET')
 DARAJA_SHORTCODE = config('DARAJA_SHORTCODE')
 DARAJA_PASSKEY = config('DARAJA_PASSKEY')
 DARAJA_CALLBACK_URL = config('DARAJA_CALLBACK_URL')
+
+# Celery
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Africa/Nairobi"
+
+# Celery Beat (scheduled tasks)
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    "expire-subscriptions-daily": {
+        "task": "tasks.payment_tasks.expire_subscriptions",
+        "schedule": crontab(hour=0, minute=0),  # runs every day at midnight Nairobi time
+    },
+}
