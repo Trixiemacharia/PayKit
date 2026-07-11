@@ -12,12 +12,24 @@ from .views import (
     AdminAnalyticsView,
     AdminFailedPaymentsView,
     AdminRetryPaymentView,
+    TenantOverviewView,
+    TenantPaymentsView,
+    TenantCustomersView,
+    TenantSubscriptionsView,
+    TenantAnalyticsView,
+    TenantSettingsView,
 )
 
 urlpatterns = [
     # Tenant dashboard
     path("stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("transactions/", RecentTransactionsView.as_view(), name="recent-transactions"),
+    path("tenant/overview/", TenantOverviewView.as_view(), name="tenant-overview"),
+    path("tenant/payments/", TenantPaymentsView.as_view(), name="tenant-payments"),
+    path("tenant/customers/", TenantCustomersView.as_view(), name="tenant-customers"),
+    path("tenant/subscriptions/", TenantSubscriptionsView.as_view(), name="tenant-subscriptions"),
+    path("tenant/analytics/", TenantAnalyticsView.as_view(), name="tenant-analytics"),
+    path("tenant/settings/", TenantSettingsView.as_view(), name="tenant-settings"),
 
     # Admin dashboard
     path("admin/overview/", AdminOverviewView.as_view(), name="admin-overview"),

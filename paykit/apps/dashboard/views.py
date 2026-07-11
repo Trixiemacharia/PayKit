@@ -496,3 +496,339 @@ class AdminRetryPaymentView(APIView):
         retry_failed_payment.apply_async(args=[str(transaction.id)])
 
         return Response({"message": "Payment retry queued successfully"})
+
+# ─── TENANT DASHBOARD VIEWS ──────────────────────────────────────────────────
+
+class TenantOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+
+        if not tenant:
+            return Response(
+                {"error": "No tenant found. Complete business setup first."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        now = timezone.now()
+        this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        thirty_days_ago = now - timedelta(days=30)
+
+        # Revenue
+        total_revenue = Transaction.objects.filter(
+            tenant=tenant, status="SUCCESS"
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        this_month_revenue = Transaction.objects.filter(
+            tenant=tenant, status="SUCCESS",
+            created_at__gte=this_month_start,
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        # Subscriptions
+        active_subs = Subscription.objects.filter(
+            user__tenant=tenant, status="ACTIVE"
+        ).count()
+
+        expiring_soon = Subscription.objects.filter(
+            user__tenant=tenant,
+            status="ACTIVE",
+            end_date__lte=(now + timedelta(days=7)).date(),
+            end_date__gte=now.date(),
+        ).count()
+
+        # Payments
+        failed_count = Transaction.objects.filter(
+            tenant=tenant, status="FAILED",
+            created_at__gte=thirty_days_ago,
+        ).count()
+
+        successful_count = Transaction.objects.filter(
+            tenant=tenant, status="SUCCESS",
+            created_at__gte=thirty_days_ago,
+        ).count()
+
+        total_attempts = failed_count + successful_count
+        success_rate = round(
+            (successful_count / total_attempts * 100), 1
+        ) if total_attempts > 0 else 0
+
+        # Daily revenue chart — last 30 days
+        daily_revenue = []
+        for i in range(29, -1, -1):
+            day = now.date() - timedelta(days=i)
+            day_total = Transaction.objects.filter(
+                tenant=tenant, status="SUCCESS",
+                created_at__date=day,
+            ).aggregate(total=Sum("amount"))["total"] or 0
+            daily_revenue.append({
+                "date": day.strftime("%b %d"),
+                "revenue": float(day_total),
+            })
+
+        return Response({
+            "total_revenue": float(total_revenue),
+            "this_month_revenue": float(this_month_revenue),
+            "active_subscriptions": active_subs,
+            "expiring_soon": expiring_soon,
+            "failed_payments_30d": failed_count,
+            "success_rate": success_rate,
+            "daily_revenue": daily_revenue,
+        })
+
+
+class TenantPaymentsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        transactions = Transaction.objects.filter(
+            tenant=tenant
+        ).order_by("-created_at")
+
+        # Filters
+        status_filter = request.query_params.get("status")
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        phone = request.query_params.get("phone")
+
+        if status_filter:
+            transactions = transactions.filter(status=status_filter.upper())
+        if date_from:
+            transactions = transactions.filter(created_at__date__gte=date_from)
+        if date_to:
+            transactions = transactions.filter(created_at__date__lte=date_to)
+        if phone:
+            transactions = transactions.filter(phone__icontains=phone)
+
+        data = [
+            {
+                "id": str(t.id),
+                "phone": t.phone,
+                "amount": float(t.amount),
+                "status": t.status,
+                "mpesa_receipt": t.mpesa_receipt or "—",
+                "created_at": t.created_at.strftime("%Y-%m-%d %H:%M"),
+                "reason": self._get_reason(t.callback_raw) if t.status == "FAILED" else None,
+            }
+            for t in transactions[:100]
+        ]
+
+        return Response({"transactions": data})
+
+    def _get_reason(self, callback_raw):
+        if not callback_raw:
+            return "Unknown"
+        try:
+            return callback_raw["Body"]["stkCallback"]["ResultDesc"]
+        except (KeyError, TypeError):
+            return "Unknown"
+
+
+class TenantCustomersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        # Get unique phone numbers that have transacted with this tenant
+        from django.db.models import Max, Count
+
+        customers_qs = Transaction.objects.filter(
+            tenant=tenant
+        ).values("phone").annotate(
+            last_payment=Max("created_at"),
+            total_spent=Sum("amount"),
+            total_transactions=Count("id"),
+        ).order_by("-last_payment")
+
+        data = []
+        for c in customers_qs:
+            # Get latest subscription for this phone
+            latest_sub = Subscription.objects.filter(
+                user__tenant=tenant,
+                user__phone=c["phone"],
+            ).select_related("plan").order_by("-created_at").first()
+
+            data.append({
+                "phone": c["phone"],
+                "last_payment": c["last_payment"].strftime("%Y-%m-%d"),
+                "total_spent": float(c["total_spent"] or 0),
+                "total_transactions": c["total_transactions"],
+                "plan": latest_sub.plan.name if latest_sub else "—",
+                "subscription_status": latest_sub.status if latest_sub else "NONE",
+            })
+
+        return Response({"customers": data})
+
+
+class TenantSubscriptionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        now = timezone.now()
+        seven_days = (now + timedelta(days=7)).date()
+
+        def serialize(sub):
+            return {
+                "id": str(sub.id),
+                "phone": sub.user.phone if hasattr(sub.user, "phone") else "—",
+                "plan": sub.plan.name,
+                "price_kes": float(sub.plan.price_kes),
+                "status": sub.status,
+                "start_date": sub.start_date.strftime("%Y-%m-%d"),
+                "end_date": sub.end_date.strftime("%Y-%m-%d"),
+                "days_left": (sub.end_date - now.date()).days,
+            }
+
+        active = Subscription.objects.filter(
+            user__tenant=tenant, status="ACTIVE"
+        ).select_related("plan", "user").order_by("end_date")
+
+        expiring = Subscription.objects.filter(
+            user__tenant=tenant, status="ACTIVE",
+            end_date__lte=seven_days,
+            end_date__gte=now.date(),
+        ).select_related("plan", "user").order_by("end_date")
+
+        expired = Subscription.objects.filter(
+            user__tenant=tenant, status="EXPIRED"
+        ).select_related("plan", "user").order_by("-end_date")[:20]
+
+        return Response({
+            "active": [serialize(s) for s in active],
+            "expiring_soon": [serialize(s) for s in expiring],
+            "recently_expired": [serialize(s) for s in expired],
+        })
+
+
+class TenantAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        now = timezone.now()
+
+        # Monthly revenue trend — last 6 months
+        monthly_trend = []
+        for i in range(5, -1, -1):
+            month_start = (now - relativedelta(months=i)).replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+            month_end = month_start + relativedelta(months=1)
+            total = Transaction.objects.filter(
+                tenant=tenant, status="SUCCESS",
+                created_at__gte=month_start,
+                created_at__lt=month_end,
+            ).aggregate(total=Sum("amount"))["total"] or 0
+            monthly_trend.append({
+                "month": month_start.strftime("%b %Y"),
+                "revenue": float(total),
+            })
+
+        # Payment success rate
+        total_tx = Transaction.objects.filter(tenant=tenant).count()
+        success_tx = Transaction.objects.filter(tenant=tenant, status="SUCCESS").count()
+        success_rate = round((success_tx / total_tx * 100), 1) if total_tx > 0 else 0
+
+        # Churn — expired this month vs last month
+        this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_month_start = this_month_start - relativedelta(months=1)
+
+        churn_this_month = Subscription.objects.filter(
+            user__tenant=tenant, status="EXPIRED",
+            end_date__gte=this_month_start.date(),
+        ).count()
+
+        churn_last_month = Subscription.objects.filter(
+            user__tenant=tenant, status="EXPIRED",
+            end_date__gte=last_month_start.date(),
+            end_date__lt=this_month_start.date(),
+        ).count()
+
+        # Top customers by spend
+        from django.db.models import Sum as DSum
+        top_customers = Transaction.objects.filter(
+            tenant=tenant, status="SUCCESS"
+        ).values("phone").annotate(
+            total=DSum("amount")
+        ).order_by("-total")[:5]
+
+        top_customers_data = [
+            {"phone": c["phone"], "total_spent": float(c["total"])}
+            for c in top_customers
+        ]
+
+        # Peak payment days
+        from django.db.models.functions import ExtractDay
+        peak_days = Transaction.objects.filter(
+            tenant=tenant, status="SUCCESS"
+        ).annotate(
+            day=ExtractDay("created_at")
+        ).values("day").annotate(
+            count=Count("id")
+        ).order_by("-count")[:5]
+
+        peak_days_data = [
+            {"day": f"Day {p['day']}", "payments": p["count"]}
+            for p in peak_days
+        ]
+
+        return Response({
+            "monthly_trend": monthly_trend,
+            "success_rate": success_rate,
+            "churn_this_month": churn_this_month,
+            "churn_last_month": churn_last_month,
+            "top_customers": top_customers_data,
+            "peak_days": peak_days_data,
+        })
+
+
+class TenantSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        sub = Subscription.objects.filter(
+            user__tenant=tenant, status="ACTIVE"
+        ).select_related("plan").order_by("-created_at").first()
+
+        return Response({
+            "business_name": tenant.name,
+            "slug": tenant.slug,
+            "owner_email": request.user.email,
+            "is_active": tenant.is_active,
+            "current_plan": sub.plan.name if sub else "No active plan",
+            "plan_price": float(sub.plan.price_kes) if sub else 0,
+            "next_billing": sub.end_date.strftime("%Y-%m-%d") if sub else None,
+        })
+
+    def patch(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        if "business_name" in request.data:
+            tenant.name = request.data["business_name"]
+            tenant.save()
+
+        if "email" in request.data:
+            request.user.email = request.data["email"]
+            request.user.save()
+
+        return Response({"message": "Settings updated successfully"})
