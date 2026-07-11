@@ -9,21 +9,27 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  async function handleLogin() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await login(username, password);
-      localStorage.setItem("access_token", res.data.access);
-      localStorage.setItem("refresh_token", res.data.refresh);
-      navigate("/dashboard");
-    } catch (err) {
-      setError("Invalid username or password");
-    } finally {
-      setLoading(false);
-    }
-  }
+async function handleLogin() {
+  setLoading(true);
+  setError("");
+  try {
+    const res = await login(username, password);
+    localStorage.setItem("access_token", res.data.access);
+    localStorage.setItem("refresh_token", res.data.refresh);
+    localStorage.setItem("is_superuser", res.data.is_superuser);
 
+    // Redirect based on role
+    if (res.data.is_superuser) {
+      navigate("/admin-dashboard");
+    } else {
+      navigate("/dashboard");
+    }
+  } catch (err) {
+    setError("Invalid username or password");
+  } finally {
+    setLoading(false);
+  }
+}
   return (
     <div style={styles.container}>
       <div style={styles.card}>

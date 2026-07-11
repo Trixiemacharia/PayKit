@@ -42,3 +42,36 @@ export const getDashboardStats = () =>
 
 export const getRecentTransactions = (status = "") =>
   client.get(`/dashboard/transactions/${status ? `?status=${status}` : ""}`);
+
+// ─── Admin API ───────────────────────────────────────────
+export const getAdminOverview = () =>
+  client.get("/dashboard/admin/overview/");
+
+export const getAdminBusinesses = () =>
+  client.get("/dashboard/admin/businesses/");
+
+export const adminBusinessAction = (tenantId, action, extra = {}) =>
+  client.patch(`/dashboard/admin/businesses/${tenantId}/`, { action, ...extra });
+
+export const getAdminRevenue = () =>
+  client.get("/dashboard/admin/revenue/");
+
+export const getAdminTransactions = (filters = {}) => {
+  const params = new URLSearchParams(filters).toString();
+  return client.get(`/dashboard/admin/transactions/${params ? `?${params}` : ""}`);
+};
+
+export const getAdminUsers = () =>
+  client.get("/dashboard/admin/users/");
+
+export const adminUserAction = (userId, action, extra = {}) =>
+  client.patch(`/dashboard/admin/users/${userId}/`, { action, ...extra });
+
+export const getAdminAnalytics = () =>
+  client.get("/dashboard/admin/analytics/");
+
+export const getAdminFailedPayments = () =>
+  client.get("/dashboard/admin/failed-payments/");
+
+export const retryPayment = (transactionId) =>
+  client.post('/dashboard/admin/retry/${transactionId}/');
