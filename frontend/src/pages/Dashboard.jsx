@@ -1,31 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import AdminSidebar from "../components/AdminSidebar";
-import Overview      from "../admin/Overview";
-import Businesses    from "../admin/Businesses";
-import Revenue       from "../admin/Revenue";
-import Transactions  from "../admin/Transactions";
-import Users         from "../admin/Users";
-import Analytics     from "../admin/Analytics";
-import FailedPayments from "../admin/FailedPayments";
-import Support       from "../admin/Support";
-import Settings      from "../admin/Settings";
+import TenantSidebar     from "../components/TenantSidebar";
+import TenantOverview    from "../tenant/Overview";
+import TenantPayments    from "../tenant/Payments";
+import TenantCustomers   from "../tenant/Customers";
+import TenantSubscriptions from "../tenant/Subscriptions";
+import TenantAnalytics   from "../tenant/Analytics";
+import TenantSettings    from "../tenant/Settings";
+import { getTenantSettings } from "../api/client";
 
 const SECTIONS = {
-  overview:     <Overview />,
-  businesses:   <Businesses />,
-  revenue:      <Revenue />,
-  transactions: <Transactions />,
-  users:        <Users />,
-  analytics:    <Analytics />,
-  failed:       <FailedPayments />,
-  support:      <Support />,
-  settings:     <Settings />,
+  overview:      <TenantOverview />,
+  payments:      <TenantPayments />,
+  customers:     <TenantCustomers />,
+  subscriptions: <TenantSubscriptions />,
+  analytics:     <TenantAnalytics />,
+  settings:      <TenantSettings />,
 };
 
-export default function AdminDashboard() {
-  const [active, setActive] = useState("overview");
+export default function Dashboard() {
+  const [active, setActive]           = useState("overview");
+  const [businessName, setBusinessName] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getTenantSettings()
+      .then(r => setBusinessName(r.data.business_name))
+      .catch(() => {});
+  }, []);
 
   function handleLogout() {
     localStorage.removeItem("access_token");
@@ -36,10 +38,11 @@ export default function AdminDashboard() {
 
   return (
     <div style={styles.layout}>
-      <AdminSidebar
+      <TenantSidebar
         active={active}
         onChange={setActive}
         onLogout={handleLogout}
+        businessName={businessName}
       />
       <main style={styles.main}>
         {SECTIONS[active]}
@@ -49,14 +52,6 @@ export default function AdminDashboard() {
 }
 
 const styles = {
-  layout: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#F9FAFB",
-  },
-  main: {
-    flex: 1,
-    padding: "32px",
-    overflowY: "auto",
-  },
+  layout: { display: "flex", minHeight: "100vh", background: "#F9FAFB" },
+  main: { flex: 1, padding: "32px", overflowY: "auto" },
 };

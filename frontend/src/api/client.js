@@ -75,3 +75,27 @@ export const getAdminFailedPayments = () =>
 
 export const retryPayment = (transactionId) =>
   client.post('/dashboard/admin/retry/${transactionId}/');
+
+// ─── Tenant Dashboard API ─────────────────────────────────────────────────
+export const getTenantOverview = () =>
+  client.get("/dashboard/tenant/overview/");
+
+export const getTenantPayments = (filters = {}) => {
+  const params = new URLSearchParams(filters).toString();
+  return client.get(`/dashboard/tenant/payments/${params ? `?${params}` : ""}`);
+};
+
+export const getTenantCustomers = () =>
+  client.get("/dashboard/tenant/customers/");
+
+export const getTenantSubscriptions = () =>
+  client.get("/dashboard/tenant/subscriptions/");
+
+export const getTenantAnalytics = () =>
+  client.get("/dashboard/tenant/analytics/");
+
+export const getTenantSettings = () =>
+  client.get("/dashboard/tenant/settings/");
+
+export const updateTenantSettings = (data) =>
+  client.patch("/dashboard/tenant/settings/", data);
