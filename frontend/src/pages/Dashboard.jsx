@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TenantSidebar     from "../components/TenantSidebar";
+import UpgradePrompt from "../components/UpgradePrompt";
 import TenantOverview    from "../tenant/Overview";
 import TenantPayments    from "../tenant/Payments";
 import TenantCustomers   from "../tenant/Customers";
@@ -8,8 +9,25 @@ import TenantSubscriptions from "../tenant/Subscriptions";
 import TenantAnalytics   from "../tenant/Analytics";
 import TenantSettings    from "../tenant/Settings";
 import { getTenantSettings } from "../api/client";
+import { usePlan } from "../context/PlanContext";
 
-const SECTIONS = {
+const SECTION_TIERS = {
+  overview:      1,
+  payments:      1,
+  customers:     2,
+  subscriptions: 2,
+  analytics:     2,
+  settings:      1,
+};
+
+// Which plan name to show in the upgrade prompt
+const REQUIRED_PLAN = {
+  customers:     "Pro",
+  subscriptions: "Pro",
+  analytics:     "Pro",
+};
+
+const COMPONENTS = {
   overview:      <TenantOverview />,
   payments:      <TenantPayments />,
   customers:     <TenantCustomers />,
@@ -21,6 +39,7 @@ const SECTIONS = {
 export default function Dashboard() {
   const [active, setActive]           = useState("overview");
   const [businessName, setBusinessName] = useState("");
+  const { tier } = usePlan();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,6 +55,13 @@ export default function Dashboard() {
     navigate("/login");
   }
 
+   // Decide what to render
+  const requiredTier = SECTION_TIERS[active] || 1;
+  const isLocked     = tier < requiredTier;
+  const content      = isLocked
+    ? <UpgradePrompt requiredPlan={REQUIRED_PLAN[active] || "Pro"} />
+    : COMPONENTS[active];
+
   return (
     <div style={styles.layout}>
       <TenantSidebar
@@ -45,7 +71,7 @@ export default function Dashboard() {
         businessName={businessName}
       />
       <main style={styles.main}>
-        {SECTIONS[active]}
+        {content}
       </main>
     </div>
   );

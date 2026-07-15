@@ -19,6 +19,32 @@ class STKPushView(APIView):
         phone = serializer.validated_data["phone"]
         amount = serializer.validated_data["amount"]
 
+        # ── Plan enforcement ──────────────────────────────────────────
+        tenant = request.tenant
+        if tenant:
+            sub = Subscription.objects.filter(
+                user__tenant=tenant, status="ACTIVE"
+            ).select_related("plan").first()
+
+            if sub:
+                plan_name = sub.plan.name
+                limits = {"Starter": 100, "Pro": 1000, "Enterprise": None}
+                limit = limits.get(plan_name)
+
+                if limit is not None:
+                    from django.utils import timezone
+                    this_month_count = Transaction.objects.filter(
+                        tenant=tenant,
+                        created_at__month=timezone.now().month,
+                        created_at__year=timezone.now().year,
+                    ).count()
+
+                    if this_month_count >= limit:
+                        return Response({
+                            "error": f"Monthly transaction limit of {limit} reached on your {plan_name} plan.",
+                            "upgrade_required": True,
+                        }, status=status.HTTP_403_FORBIDDEN)
+
         try:
             daraja = DarajaClient()
             response = daraja.stk_push(

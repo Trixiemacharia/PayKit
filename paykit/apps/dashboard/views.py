@@ -808,12 +808,17 @@ class TenantSettingsView(APIView):
             user__tenant=tenant, status="ACTIVE"
         ).select_related("plan").order_by("-created_at").first()
 
+        plan_name = sub.plan.name if sub else "Starter"
+        tier_map = {"Starter":1, "Pro":2, "Enterprise":3}
+        tier = tier_map.get(plan_name, 1)
+
         return Response({
             "business_name": tenant.name,
             "slug": tenant.slug,
             "owner_email": request.user.email,
             "is_active": tenant.is_active,
-            "current_plan": sub.plan.name if sub else "No active plan",
+            "current_plan": plan_name,
+            "tier": tier,
             "plan_price": float(sub.plan.price_kes) if sub else 0,
             "next_billing": sub.end_date.strftime("%Y-%m-%d") if sub else None,
         })
