@@ -25,7 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', cast=bool, default='')
+# Some deployment platforms expose DEBUG=release.  django-decouple's boolean
+# caster rejects that value and prevents Django (including the Google endpoint)
+# from starting. Treat only explicit truthy values as debug mode.
+DEBUG = config('DEBUG', default='False').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 ALLOWED_HOSTS = ["*"]
 
@@ -224,10 +227,9 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-ACCOUNT_EMAIL_REQUIRED        = True
-ACCOUNT_USERNAME_REQUIRED     = False
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_VERIFICATION    = "none"  # change to "mandatory" in production
+ACCOUNT_LOGIN_METHODS       = {"email"}
+ACCOUNT_SIGNUP_FIELDS       = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION  = "none"  # change to "mandatory" in production
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {

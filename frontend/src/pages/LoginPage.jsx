@@ -32,13 +32,14 @@ export default function LoginPage() {
   }
 
   const handleGoogleLogin = useGoogleLogin({
+    scope: "openid profile email",
     onSuccess: async (response) => {
       setLoading(true); setError("");
       try {
         const res = await googleLogin(response.access_token);
         handleSuccess(res.data);
-      } catch {
-        setError("Google login failed. Please try again.");
+      } catch (e) {
+        setError(e.response?.data?.error || "Google login failed. Please try again.");
       } finally { setLoading(false); }
     },
     onError: () => setError("Google login failed. Please try again."),

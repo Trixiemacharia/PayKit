@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from apps.tenants.models import Tenant
 from apps.subscriptions.models import Plan
 from allauth.socialaccount.models import SocialAccount
@@ -10,6 +11,20 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import requests as http_requests
 
 User = get_user_model()
+
+
+def google_username(email):
+    """Return an available username for projects using Django's default user."""
+    username_field = User._meta.get_field(User.USERNAME_FIELD)
+    max_length = username_field.max_length
+    base = email.split("@", 1)[0][:max_length] or "google-user"
+    candidate = base
+    suffix = 1
+    while User.objects.filter(**{User.USERNAME_FIELD: candidate}).exists():
+        suffix_text = f"-{suffix}"
+        candidate = f"{base[:max_length - len(suffix_text)]}{suffix_text}"
+        suffix += 1
+    return candidate
 
 
 class RegisterView(APIView):
@@ -117,10 +132,17 @@ class GoogleLoginView(APIView):
             )
 
         # Verify token with Google and get user info
-        google_response = http_requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {google_token}"}
-        )
+        try:
+            google_response = http_requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {google_token}"},
+                timeout=10,
+            )
+        except http_requests.RequestException:
+            return Response(
+                {"error": "Google could not be reached. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         if google_response.status_code != 200:
             return Response(
@@ -133,21 +155,52 @@ class GoogleLoginView(APIView):
         name        = google_data.get("name", "")
         google_id   = google_data.get("sub")  # Google's unique user ID
 
-        if not email:
+        if not email or not google_id:
             return Response(
-                {"error": "Could not retrieve email from Google"},
+                {"error": "Could not retrieve a Google account identity"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Find or create the user
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "username": email.split("@")[0],
-                "first_name": name.split(" ")[0] if name else "",
-                "last_name":  " ".join(name.split(" ")[1:]) if name else "",
-            }
-        )
+        if not google_data.get("email_verified"):
+            return Response(
+                {"error": "Your Google email address must be verified"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # A provider UID is the stable identity. Email is used only to link an
+        # existing local account the first time that Google account signs in.
+        with transaction.atomic():
+            social_account = (
+                SocialAccount.objects.select_related("user")
+                .filter(provider="google", uid=google_id)
+                .first()
+            )
+            if social_account:
+                user = social_account.user
+                created = False
+                social_account.extra_data = google_data
+                social_account.save(update_fields=["extra_data"])
+            else:
+                user = User.objects.filter(email__iexact=email).first()
+                created = user is None
+                if created:
+                    try:
+                        user = User.objects.create_user(
+                            username=google_username(email),
+                            email=email,
+                            first_name=name.split(" ")[0] if name else "",
+                            last_name=" ".join(name.split(" ")[1:]) if name else "",
+                        )
+                    except IntegrityError:
+                        # A concurrent first login may have created the user.
+                        user = User.objects.get(email__iexact=email)
+                        created = False
+                SocialAccount.objects.create(
+                    user=user,
+                    provider="google",
+                    uid=google_id,
+                    extra_data=google_data,
+                )
 
         # Generate JWT tokens for this user
         refresh = RefreshToken.for_user(user)

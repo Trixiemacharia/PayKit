@@ -27,6 +27,7 @@ export default function RegisterPage() {
 
   // ── Step 0: Google signup ─────────────────────────────────────────────────
   const handleGoogleSignup = useGoogleLogin({
+    scope: "openid profile email",
     onSuccess: async (response) => {
       setLoading(true); setError("");
       try {
@@ -37,8 +38,8 @@ export default function RegisterPage() {
         const plansRes = await getPlans();
         setPlans(plansRes.data.plans);
         setStep(1); // skip to business setup
-      } catch {
-        setError("Google signup failed. Please try again.");
+      } catch (e) {
+        setError(e.response?.data?.error || "Google signup failed. Please try again.");
       } finally { setLoading(false); }
     },
     onError: () => setError("Google signup failed."),
