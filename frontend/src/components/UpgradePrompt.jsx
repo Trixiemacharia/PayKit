@@ -147,20 +147,26 @@ export default function UpgradePrompt({ requiredPlan = "Pro" }) {
         <div style={styles.featureList}>
           {requiredPlan === "Pro" && (
             <>
-              <FeatureRow text="Customer management — view, charge, track" />
-              <FeatureRow text="Subscription tracking — active, expiring, expired" />
-              <FeatureRow text="Analytics — revenue trends, churn, top customers" />
-              <FeatureRow text="Automatic failed payment retry" />
-              <FeatureRow text="Up to 1,000 transactions/month" />
+            <FeatureRow text="Up to 1,000 transactions/month (vs 100 on Starter)" />
+            <FeatureRow text="Customer management — view, charge, track" />
+            <FeatureRow text="Subscription tracking — active, expiring, expired" />
+            <FeatureRow text="Analytics — revenue trends, churn, top customers" />
+            <FeatureRow text="Automatic failed payment retry (up to 3x)" />
+            <FeatureRow text="CSV export of all transactions" />
+            <FeatureRow text="Up to 5 user accounts" />
+            <FeatureRow text="Priority email support" />
             </>
           )}
           {requiredPlan === "Enterprise" && (
             <>
-              <FeatureRow text="Everything in Pro" />
-              <FeatureRow text="API access — integrate PayKit into your own app" />
-              <FeatureRow text="Webhook support — get notified when customers pay" />
-              <FeatureRow text="Unlimited transactions" />
-              <FeatureRow text="Custom reports + CSV export" />
+            <FeatureRow text="Everything in Pro" />
+            <FeatureRow text="Unlimited transactions — no monthly cap" />
+            <FeatureRow text="API access — plug PayKit into your own app" />
+            <FeatureRow text="Webhook support — get notified when customers pay" />
+            <FeatureRow text="Custom reports + advanced CSV export" />
+            <FeatureRow text="Unlimited user accounts" />
+            <FeatureRow text="Dedicated support + onboarding call" />
+            <FeatureRow text="99.9% uptime SLA guarantee" />
             </>
           )}
         </div>

@@ -90,6 +90,25 @@ export default function TenantOverview() {
           {chargeMsg && <p style={styles.chargeMsg}>{chargeMsg}</p>}
         </div>
       )}
+      {/* Expiry warning banner */}
+      {data.expiring_soon > 0 && (
+        <div style={styles.expiryBanner}>
+          <span style={styles.expiryIcon}>⚠️</span>
+          <div>
+            <strong>Your subscription is expiring soon.</strong>
+            <p style={styles.expiryText}>
+              You have {data.expiring_soon} subscription{data.expiring_soon > 1 ? "s" : ""} expiring within 7 days.
+              Renew now to avoid losing access to your dashboard features.
+            </p>
+          </div>
+          <button
+            style={styles.renewBtn}
+            onClick={() => setShowCharge(true)}
+          >
+            Renew Now
+          </button>
+       </div>
+      )}
 
       {/* Stat cards */}
       <div style={styles.grid}>
@@ -176,4 +195,28 @@ const styles = {
   quickCard: { background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
   quickLabel: { margin: "0 0 8px", fontSize: "12px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em" },
   quickValue: { margin: 0, fontSize: "28px", fontWeight: "700" },
+  expiryBanner: {
+  display: "flex",
+  alignItems: "center",
+  gap: "16px",
+  background: "#FEF3C7",
+  border: "1px solid #F0A500",
+  borderRadius: "10px",
+  padding: "16px 20px",
+  marginBottom: "24px",
+},
+expiryIcon: { fontSize: "24px", flexShrink: 0 },
+expiryText: { margin: "4px 0 0", fontSize: "13px", color: "#92400E" },
+renewBtn: {
+  marginLeft: "auto",
+  padding: "8px 16px",
+  background: "#F0A500",
+  color: "#fff",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "13px",
+  flexShrink: 0,
+},
 };

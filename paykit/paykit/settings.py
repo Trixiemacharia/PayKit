@@ -176,9 +176,17 @@ CELERY_TIMEZONE = "Africa/Nairobi"
 # Celery Beat (scheduled tasks)
 from celery.schedules import crontab
 
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
+    # Expire subscriptions every day at midnight
     "expire-subscriptions-daily": {
         "task": "tasks.payment_tasks.expire_subscriptions",
-        "schedule": crontab(hour=0, minute=0),  # runs every day at midnight Nairobi time
+        "schedule": crontab(hour=0, minute=0),
+    },
+    # Notify expiring subscriptions every day at 9am
+    "notify-expiring-subscriptions-daily": {
+        "task": "tasks.payment_tasks.notify_expiring_subscriptions",
+        "schedule": crontab(hour=9, minute=0),
     },
 }
