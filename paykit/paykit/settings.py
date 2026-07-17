@@ -39,17 +39,28 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-     'rest_framework',
+    'django.contrib.sites',
+    #third party
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+    #apps
     'apps.tenants',
     'apps.users',
     'apps.payments',
     'apps.webhooks',
     'apps.subscriptions',
     'apps.dashboard',
-    'corsheaders',
 ]
 
+SITE_ID = 1
+
 MIDDLEWARE = [
+    'paykit.middleware.CoopMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -59,10 +70,22 @@ MIDDLEWARE = [
     'apps.tenants.middleware.TenantMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOWED_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "x-csrftoken",
 ]
 
 ROOT_URLCONF = 'paykit.urls'
@@ -109,6 +132,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "UNAUTHENTICATED_USER":None,
 }
 
 # Password validation
@@ -190,3 +214,33 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=9, minute=0),
     },
 }
+
+# Required for Google OAuth popup to work
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+
+# ── Allauth ──────────────────────────────────────────────────────────────────
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+ACCOUNT_EMAIL_REQUIRED        = True
+ACCOUNT_USERNAME_REQUIRED     = False
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_VERIFICATION    = "none"  # change to "mandatory" in production
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "APP": {
+            "client_id": config("GOOGLE_CLIENT_ID"),
+            "secret": config("GOOGLE_CLIENT_SECRET"), 
+            "key":           "",
+        }
+    }
+}
+
+SOCIALACCOUNT_AUTO_SIGNUP    = True
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+LOGIN_REDIRECT_URL           = "/"

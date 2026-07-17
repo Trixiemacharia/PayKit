@@ -99,3 +99,6 @@ export const getTenantSettings = () =>
 
 export const updateTenantSettings = (data) =>
   client.patch("/dashboard/tenant/settings/", data);
+
+export const googleLogin = (accessToken) =>
+  client.post("/users/google/", { access_token: accessToken });

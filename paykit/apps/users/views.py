@@ -5,6 +5,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
 from apps.tenants.models import Tenant
 from apps.subscriptions.models import Plan
+from allauth.socialaccount.models import SocialAccount
+from rest_framework_simplejwt.tokens import RefreshToken
+import requests as http_requests
 
 User = get_user_model()
 
@@ -96,3 +99,65 @@ class ListPlansView(APIView):
             for p in plans
         ]
         return Response({"plans": data})
+
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """
+        Receives the Google access token from React (after Google OAuth popup),
+        verifies it with Google, finds or creates the user,
+        and returns a JWT token pair.
+        """
+        google_token = request.data.get("access_token")
+        if not google_token:
+            return Response(
+                {"error": "access_token is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify token with Google and get user info
+        google_response = http_requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {google_token}"}
+        )
+
+        if google_response.status_code != 200:
+            return Response(
+                {"error": "Invalid Google token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        google_data = google_response.json()
+        email       = google_data.get("email")
+        name        = google_data.get("name", "")
+        google_id   = google_data.get("sub")  # Google's unique user ID
+
+        if not email:
+            return Response(
+                {"error": "Could not retrieve email from Google"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Find or create the user
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email.split("@")[0],
+                "first_name": name.split(" ")[0] if name else "",
+                "last_name":  " ".join(name.split(" ")[1:]) if name else "",
+            }
+        )
+
+        # Generate JWT tokens for this user
+        refresh = RefreshToken.for_user(user)
+        access  = refresh.access_token
+
+        return Response({
+            "access":       str(access),
+            "refresh":      str(refresh),
+            "is_superuser": user.is_superuser,
+            "username":     user.username,
+            "email":        user.email,
+            "is_new_user":  created,  # React uses this to redirect to onboarding
+        })
