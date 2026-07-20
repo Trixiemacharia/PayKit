@@ -1,5 +1,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 
 class CustomTokenSerializer(TokenObtainPairSerializer):
@@ -20,6 +22,6 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
         data["username"] = self.user.username
         return data
 
-
+@method_decorator(ratelimit(key="ip", rate="10/m", block=True), name="post")
 class CustomTokenView(TokenObtainPairView):
     serializer_class = CustomTokenSerializer

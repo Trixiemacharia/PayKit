@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 from decouple import config
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     #apps
     'apps.tenants',
@@ -136,6 +138,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "UNAUTHENTICATED_USER":None,
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME":  timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS":  True,       # issue new refresh token on every refresh
+    "BLACKLIST_AFTER_ROTATION": True,     # blacklist old refresh token after rotation
+    "UPDATE_LAST_LOGIN": True,
 }
 
 # Password validation
@@ -246,3 +256,6 @@ SOCIALACCOUNT_PROVIDERS = {
 SOCIALACCOUNT_AUTO_SIGNUP    = True
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 LOGIN_REDIRECT_URL           = "/"
+
+RATELIMIT_VIEW = "apps.users.views.rate_limit_error"
+RATELIMIT_USE_CACHE = "default"  # uses Redis for rate limit counters

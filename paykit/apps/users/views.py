@@ -8,10 +8,19 @@ from apps.tenants.models import Tenant
 from apps.subscriptions.models import Plan
 from allauth.socialaccount.models import SocialAccount
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 import requests as http_requests
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+from django.http import JsonResponse
 
 User = get_user_model()
 
+def rate_limit_error(request, exception=None):
+    return JsonResponse(
+        {"error": "Too many requests. Please wait a minute and try again."},
+        status=429
+    )
 
 def google_username(email):
     """Return an available username for projects using Django's default user."""
@@ -26,7 +35,7 @@ def google_username(email):
         suffix += 1
     return candidate
 
-
+@method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="post")
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -115,6 +124,7 @@ class ListPlansView(APIView):
         ]
         return Response({"plans": data})
 
+@method_decorator(ratelimit(key="ip", rate="10/m", block=True), name="post")
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -214,3 +224,24 @@ class GoogleLoginView(APIView):
             "email":        user.email,
             "is_new_user":  created,  # React uses this to redirect to onboarding
         })
+
+@method_decorator(ratelimit(key="ip", rate="3/m", block=True), name="post")
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh_token")
+        if not refresh_token:
+            return Response(
+                {"error": "refresh_token is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Logged out successfully"})
+        except TokenError:
+            return Response(
+                {"error": "Invalid or already blacklisted token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )

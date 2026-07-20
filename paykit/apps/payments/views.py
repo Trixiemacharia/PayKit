@@ -3,12 +3,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-
 from config.daraja import DarajaClient
 from .models import Transaction
 from .serializers import STKPushSerializer
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
 
-
+@method_decorator(ratelimit(key="ip", rate="20/m", block=True), name="post")
 class STKPushView(APIView):
     permission_classes = [IsAuthenticated]
 

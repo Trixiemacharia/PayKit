@@ -102,3 +102,6 @@ export const updateTenantSettings = (data) =>
 
 export const googleLogin = (accessToken) =>
   client.post("/users/google/", { access_token: accessToken });
+
+export const logout = (refreshToken) =>
+  client.post("/users/logout/", { refresh_token: refreshToken });

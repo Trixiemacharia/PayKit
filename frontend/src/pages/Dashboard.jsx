@@ -10,6 +10,7 @@ import TenantAnalytics   from "../tenant/Analytics";
 import TenantSettings    from "../tenant/Settings";
 import { getTenantSettings } from "../api/client";
 import { usePlan } from "../context/PlanContext";
+import { logout } from "../api/client";
 
 const SECTION_TIERS = {
   overview:      1,
@@ -48,11 +49,17 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
-  function handleLogout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("is_superuser");
-    navigate("/login");
+  async function handleLogout() {
+    try {
+      const refresh = localStorage.getItem("refresh_token");
+      await logout(refresh);
+    } catch {}
+    finally{
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("is_superuser");
+      navigate("/login");
+    }
   }
 
    // Decide what to render

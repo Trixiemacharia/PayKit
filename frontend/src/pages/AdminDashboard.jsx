@@ -10,6 +10,7 @@ import Analytics     from "../admin/Analytics";
 import FailedPayments from "../admin/FailedPayments";
 import Support       from "../admin/Support";
 import Settings      from "../admin/Settings";
+import { logout } from "../api/client";
 
 const SECTIONS = {
   overview:     <Overview />,
@@ -27,12 +28,18 @@ export default function AdminDashboard() {
   const [active, setActive] = useState("overview");
   const navigate = useNavigate();
 
-  function handleLogout() {
+async function handleLogout() {
+  try {
+    const refresh = localStorage.getItem("refresh_token");
+    await logout(refresh);
+  } catch { /* fail silently */ }
+  finally {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("is_superuser");
     navigate("/login");
   }
+}
 
   return (
     <div style={styles.layout}>
