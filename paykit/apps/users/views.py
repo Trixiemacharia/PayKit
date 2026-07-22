@@ -13,6 +13,7 @@ import requests as http_requests
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse
+from django.conf import settings
 
 User = get_user_model()
 
@@ -141,8 +142,29 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Verify token with Google and get user info
+        # Verify the token with Google and make sure it was issued for this
+        # application's OAuth client.  Calling userinfo alone only proves that
+        # a token is valid; it does not prove that it belongs to PayKit.
         try:
+            token_info_response = http_requests.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"access_token": google_token},
+                timeout=10,
+            )
+            if token_info_response.status_code != 200:
+                return Response(
+                    {"error": "Your Google session has expired. Please select your account again."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            token_info = token_info_response.json()
+            token_audience = token_info.get("aud") or token_info.get("issued_to")
+            if token_audience != settings.GOOGLE_CLIENT_ID:
+                return Response(
+                    {"error": "This Google sign-in token was issued for a different application."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             google_response = http_requests.get(
                 "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {google_token}"},
@@ -156,7 +178,7 @@ class GoogleLoginView(APIView):
 
         if google_response.status_code != 200:
             return Response(
-                {"error": "Invalid Google token"},
+                {"error": "Your Google session has expired. Please select your account again."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -245,3 +267,15 @@ class LogoutView(APIView):
                 {"error": "Invalid or already blacklisted token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+def axes_whitelist(request):
+    """
+    Whitelist endpoints that should never be blocked by axes.
+    Returns True to whitelist (skip axes check), False to apply axes.
+    """
+    whitelisted_paths = [
+        "/api/users/google/",
+        "/api/users/register/",
+        "/api/users/plans/",
+    ]
+    return request.path in whitelisted_paths

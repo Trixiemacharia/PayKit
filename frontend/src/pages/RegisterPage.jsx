@@ -42,7 +42,14 @@ export default function RegisterPage() {
         setError(e.response?.data?.error || "Google signup failed. Please try again.");
       } finally { setLoading(false); }
     },
-    onError: () => setError("Google signup failed."),
+    onError: (errorResponse) => {
+      const reason = errorResponse?.error;
+      setError(
+        reason === "popup_closed"
+          ? "Google sign-up was cancelled. Please try again."
+          : "Google could not start sign-up. Check that this site's URL is authorised in Google Cloud."
+      );
+    },
   });
 
   // ── Step 0: Email signup ──────────────────────────────────────────────────

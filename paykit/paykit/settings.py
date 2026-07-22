@@ -31,6 +31,11 @@ SECRET_KEY = config('SECRET_KEY')
 # from starting. Treat only explicit truthy values as debug mode.
 DEBUG = config('DEBUG', default='False').strip().lower() in {'1', 'true', 'yes', 'on'}
 
+# Keep the OAuth client identity in one place.  The API uses this value when it
+# validates a token received from the browser, and allauth uses the same value
+# for its server-side Google integration.
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')
+
 ALLOWED_HOSTS = ["*"]
 
 
@@ -60,14 +65,15 @@ INSTALLED_APPS = [
     'apps.webhooks',
     'apps.subscriptions',
     'apps.dashboard',
+    'axes',
 ]
 
 SITE_ID = 1
 
 MIDDLEWARE = [
-    'paykit.middleware.CoopMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'paykit.middleware.CoopMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -76,7 +82,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+     'axes.middleware.AxesMiddleware',
 ]
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -166,6 +175,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS=[
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
@@ -246,7 +259,7 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["profile", "email"],
         "AUTH_PARAMS": {"access_type": "online"},
         "APP": {
-            "client_id": config("GOOGLE_CLIENT_ID"),
+            "client_id": GOOGLE_CLIENT_ID,
             "secret": config("GOOGLE_CLIENT_SECRET"), 
             "key":           "",
         }
@@ -259,3 +272,5 @@ LOGIN_REDIRECT_URL           = "/"
 
 RATELIMIT_VIEW = "apps.users.views.rate_limit_error"
 RATELIMIT_USE_CACHE = "default"  # uses Redis for rate limit counters
+
+AXES_WHITELIST_CALLABLE = "apps.users.views.axes_whitelist"

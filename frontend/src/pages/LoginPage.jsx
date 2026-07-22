@@ -31,19 +31,21 @@ export default function LoginPage() {
     } finally { setLoading(false); }
   }
 
-  const handleGoogleLogin = useGoogleLogin({
-    scope: "openid profile email",
-    onSuccess: async (response) => {
-      setLoading(true); setError("");
-      try {
-        const res = await googleLogin(response.access_token);
-        handleSuccess(res.data);
-      } catch (e) {
-        setError(e.response?.data?.error || "Google login failed. Please try again.");
-      } finally { setLoading(false); }
-    },
-    onError: () => setError("Google login failed. Please try again."),
-  });
+ const handleGoogleLogin = useGoogleLogin({
+  flow: "auth-code",                        // ← change from implicit to auth-code
+  ux_mode: "redirect",                      // ← use redirect instead of popup
+  redirect_uri: "http://localhost:3000",
+  onSuccess: async (response) => {
+    setLoading(true); setError("");
+    try {
+      const res = await googleLogin(response.access_token);
+      handleSuccess(res.data);
+    } catch {
+      setError("Google login failed. Please try again.");
+    } finally { setLoading(false); }
+  },
+  onError: () => setError("Google login failed. Please try again."),
+});
 
   return (
     <div style={styles.page}>
