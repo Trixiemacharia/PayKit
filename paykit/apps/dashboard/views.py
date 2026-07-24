@@ -979,6 +979,8 @@ class TenantPaymentsView(APIView):
         if phone:
             transactions = transactions.filter(phone__icontains=phone)
 
+        transactions = transactions[:100]
+
         data = [
             {
                 "id": str(t.id),
@@ -1002,7 +1004,37 @@ class TenantPaymentsView(APIView):
         except (KeyError, TypeError):
             return "Unknown"
 
+class TenantRecentPaymentsView(APIView):
+    """
+    Lightweight endpoint polled every 10 seconds by the dashboard.
+    Returns the 10 most recent transactions for this tenant.
+    Used to update the overview feed and payment count in real time.
+    """
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        tenant = request.tenant
+        if not tenant:
+            return Response({"error": "No tenant found."}, status=400)
+
+        recent = Transaction.objects.filter(
+            tenant=tenant
+        ).order_by("-created_at")[:10]
+
+        return Response({
+            "payments": [
+                {
+                    "id":            str(t.id),
+                    "phone":         t.phone,
+                    "amount":        float(t.amount),
+                    "status":        t.status,
+                    "mpesa_receipt": t.mpesa_receipt or "—",
+                    "created_at":    t.created_at.strftime("%Y-%m-%d %H:%M"),
+                }
+                for t in recent
+            ]
+        })
+        
 class TenantCustomersView(APIView):
     permission_classes = [IsAuthenticated]
 

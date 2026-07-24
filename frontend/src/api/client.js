@@ -85,6 +85,9 @@ export const getTenantPayments = (filters = {}) => {
   return client.get(`/dashboard/tenant/payments/${params ? `?${params}` : ""}`);
 };
 
+export const getTenantRecentPayments = () =>
+  client.get("/dashboard/tenant/recent-payments/");
+
 export const getTenantCustomers = () =>
   client.get("/dashboard/tenant/customers/");
 
