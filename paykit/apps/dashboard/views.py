@@ -566,6 +566,13 @@ class TenantOverviewView(APIView):
                 "revenue": float(day_total),
             })
 
+        # A confirmed-payment feed lets the tenant immediately verify that a
+        # customer completed an STK prompt without leaving the overview.
+        recent_payments = Transaction.objects.filter(
+            tenant=tenant,
+            status="SUCCESS",
+        ).order_by("-created_at")[:5]
+
         return Response({
             "total_revenue": float(total_revenue),
             "this_month_revenue": float(this_month_revenue),
@@ -574,6 +581,17 @@ class TenantOverviewView(APIView):
             "failed_payments_30d": failed_count,
             "success_rate": success_rate,
             "daily_revenue": daily_revenue,
+            "recent_payments": [
+                {
+                    "id": str(payment.id),
+                    "phone": payment.phone,
+                    "amount": float(payment.amount),
+                    "status": payment.status,
+                    "mpesa_receipt": payment.mpesa_receipt or "—",
+                    "created_at": payment.created_at.strftime("%Y-%m-%d %H:%M"),
+                }
+                for payment in recent_payments
+            ],
         })
 
 
@@ -907,6 +925,11 @@ class TenantOverviewView(APIView):
                 "revenue": float(day_total),
             })
 
+        recent_payments = Transaction.objects.filter(
+            tenant=tenant,
+            status="SUCCESS",
+        ).order_by("-created_at")[:5]
+
         return Response({
             "total_revenue": float(total_revenue),
             "this_month_revenue": float(this_month_revenue),
@@ -915,6 +938,17 @@ class TenantOverviewView(APIView):
             "failed_payments_30d": failed_count,
             "success_rate": success_rate,
             "daily_revenue": daily_revenue,
+            "recent_payments": [
+                {
+                    "id": str(payment.id),
+                    "phone": payment.phone,
+                    "amount": float(payment.amount),
+                    "status": payment.status,
+                    "mpesa_receipt": payment.mpesa_receipt or "—",
+                    "created_at": payment.created_at.strftime("%Y-%m-%d %H:%M"),
+                }
+                for payment in recent_payments
+            ],
         })
 
 

@@ -64,6 +64,10 @@ class STKPushView(APIView):
         checkout_request_id = response.get("CheckoutRequestID")
 
         transaction = Transaction.objects.create(
+            # Dashboard reporting is tenant-scoped.  Persist the tenant at
+            # initiation time so the callback result is visible to the
+            # business that sent the STK prompt.
+            tenant=tenant,
             user=request.user,
             phone=phone,
             amount=amount,
@@ -86,6 +90,7 @@ class PaymentStatusView(APIView):
             transaction = Transaction.objects.get(
                 checkout_request_id=checkout_request_id,
                 user=request.user,
+                tenant=request.tenant,
             )
         except Transaction.DoesNotExist:
             return Response({"error": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)
